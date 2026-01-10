@@ -10,3 +10,4 @@ from .JWDReader import read_jwd
 from .NetCDFWriter import write_netcdf
 from .ParsivelNasaGVReader import read_parsivel_nasa_gv
 from .ParsivelReader import read_parsivel
+from .ParsivelTianqingReader import read_parsivel_tianqing

@@ -8,97 +8,92 @@ from ..DropSizeDistribution import DropSizeDistribution
 from . import common
 
 
-def read_parsivel(filename):
+def read_parsivel_tianqing(filename):
     """
-    Takes a filename pointing to a parsivel raw file and returns
+    Takes a filename pointing to a parsivel tianqing csv file and returns
     a drop size distribution object.
 
     Usage:
-    dsd = read_parsivel(filename)
+    dsd = read_parsivel_tianqing(filename)
 
     Returns:
     DropSizeDistrometer object
 
     """
-    reader = ParsivelReader(filename)
+    reader = ParsivelTianqingReader(filename)
     dsd = DropSizeDistribution(reader)
     return dsd
 
 
-class ParsivelReader(object):
+class ParsivelTianqingReader(object):
 
     """
-    ParsivelReader class takes a filename as it's only argument(for now).
-    This should be a parsivel raw datafile(output from the parsivel).
+    Reader for Parsivel Tianqing format.
 
+    Each row represents ONE particle.
+    The PSD code m = j * 32 + i encodes velocity bin j and diameter bin i.
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename, dt=60.0):
         self.filename = filename
-        self.rain_rate = []
-        self.Z = []
-        self.num_particles = []
-        self._base_time = []
+        self.dt = dt  # sampling interval [s]
 
-        self.nd = []
-        self.vd = []
-        self.raw = []
-        self.code = []
-        self.time = []
-
-        self.ndt = []
+        # --- inherited instrument constants ---
+        self.diameter = parsivel.diameter
+        self.spread = parsivel.spread
+        self.velocity = parsivel.velocity
+        self.sampling_area = parsivel.sampling_area
+        self.pcm_matrix = parsivel.pcm_matrix
 
         self.pcm = np.reshape(self.pcm_matrix, (32, 32))
 
+        # --- containers ---
+        self.raw = []
+        self.filtered_raw = []
+        self.nd = []
+        self.num_particles = []
+        self.time = []
+        self._base_time = []
+
+        # --- processing ---
         self._read_file()
+        self._build_raw_matrices()
+        self._apply_pcm_matrix()
+        self._raw_to_nd()
         self._prep_data()
 
+        # bin edges
         self.bin_edges = np.hstack(
             (0, self.diameter["data"] + np.array(self.spread["data"]) / 2)
         )
-
         self.bin_edges = common.var_to_dict(
             "bin_edges", self.bin_edges, "mm", "Bin Edges"
         )
 
-        self._apply_pcm_matrix()
-
     def _read_file(self):
-        """  Read the Parsivel Data file and store it in internal structure.
-        Returns: None
+        df = pd.read_csv(self.filename)
 
-        """
-        with io.open(self.filename, encoding="latin-1") as f:
-            for line in f:
-                line = line.rstrip("\n\r;")
-                code = line.split(":")[0]
-                if code == "01":  # Rain Rate
-                    self.rain_rate.append(float(line.split(":")[1]))
-                elif code == "07":  # Reflectivity
-                    self.Z.append(float(line.split(":")[1]))
-                elif code == "11":  # Num Particles
-                    self.num_particles.append(int(line.split(":")[1]))
-                elif code == "20":  # Time string
-                    self.time.append(self.get_sec(line.split(":")[1:4]))
-                elif code == "21":  # Date string
-                    date_tuple = line.split(":")[1].split(".")
-                    self._base_time.append(
-                        datetime(
-                            year=int(date_tuple[2]),
-                            month=int(date_tuple[1]),
-                            day=int(date_tuple[0]),
-                        )
-                    )
-                elif code == "90":  # Nd
-                    self.nd.append(
-                        np.power(10, list(map(float, line.split(":")[1].split(";"))))
-                    )
-                elif code == "91":  # Vd
-                    self.vd.append(
-                        list(map(float, line.split(":")[1].rstrip(";\r").split(";")))
-                    )
-                elif code == "93":  # md
-                    self.raw.append(list(map(int, line.split(":")[1].split(";"))))
+        # parse datetime
+        df["Datetime"] = pd.to_datetime(df["Datetime"])
+        self.df = df
+
+    def _build_raw_matrices(self):
+        grouped = self.df.groupby("Datetime")
+
+        for t, g in grouped:
+            raw = np.zeros((32, 32), dtype=int)
+
+            for m in g["V13205"].values:
+                j = int(m) // 32
+                i = int(m) % 32
+
+                if 0 <= i < 32 and 0 <= j < 32:
+                    raw[j, i] += 1
+
+            self.raw.append(raw)
+            self.num_particles.append(raw.sum())
+            self._base_time.append(t.replace(second=0))
+            self.time.append(0)  # offset handled later
 
     def _apply_pcm_matrix(self):
         """ Apply Data Quality matrix from Ali Tokay
@@ -112,6 +107,31 @@ class ParsivelReader(object):
             self.filtered_raw_matrix[i] = np.multiply(
                 self.pcm, np.reshape(self.raw[i], (32, 32))
             )
+
+    def _raw_to_nd(self):
+        Nd_all = []
+
+        D = np.array(self.diameter["data"])
+        dD = np.array(self.spread["data"])
+        V = np.array(self.velocity["data"])
+        A = np.array(self.sampling_area["data"])
+
+        for raw in self.filtered_raw:
+            Nd = np.zeros(32)
+
+            for i in range(32):
+                if dD[i] <= 0:
+                    continue
+
+                for j in range(32):
+                    if V[j] > 0:
+                        Nd[i] += raw[j, i] / (A[i] * V[j] * self.dt)
+
+                Nd[i] /= dD[i]
+
+            Nd_all.append(Nd)
+
+        self.nd = np.array(Nd_all)
 
     def _prep_data(self):
         self.fields = {}
