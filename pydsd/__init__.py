@@ -1,4 +1,5 @@
 from .io.ParsivelReader import read_parsivel
+from .io.ParsivelTianqingReader import read_parsivel_tianqing
 from .io.ParsivelNasaGVReader import read_parsivel_nasa_gv
 from .io.ARM_vdisdrops_reader import read_arm_vdisdrops_netcdf
 from .io.JWDReader import read_jwd

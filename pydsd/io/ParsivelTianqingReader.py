@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import io
 import numpy as np
-from netCDF4 import num2date, date2num
+import pandas as pd
 from datetime import datetime, timedelta
 
 from ..DropSizeDistribution import DropSizeDistribution
@@ -36,49 +36,43 @@ class ParsivelTianqingReader(object):
 
     def __init__(self, filename, dt=60.0):
         self.filename = filename
-        self.dt = dt  # sampling interval [s]
+        self.rain_rate = []
+        self.Z = []
+        self.num_particles = []
+        self._base_time = []
 
-        # --- inherited instrument constants ---
-        self.diameter = parsivel.diameter
-        self.spread = parsivel.spread
-        self.velocity = parsivel.velocity
-        self.sampling_area = parsivel.sampling_area
-        self.pcm_matrix = parsivel.pcm_matrix
+        self.nd = []
+        self.vd = []
+        self.raw = []
+        self.code = []
+        self.time = []
+
+        self.ndt = []
 
         self.pcm = np.reshape(self.pcm_matrix, (32, 32))
 
-        # --- containers ---
-        self.raw = []
-        self.filtered_raw = []
-        self.nd = []
-        self.num_particles = []
-        self.time = []
-        self._base_time = []
-
-        # --- processing ---
         self._read_file()
-        self._build_raw_matrices()
-        self._apply_pcm_matrix()
-        self._raw_to_nd()
         self._prep_data()
 
-        # bin edges
         self.bin_edges = np.hstack(
             (0, self.diameter["data"] + np.array(self.spread["data"]) / 2)
         )
+
         self.bin_edges = common.var_to_dict(
             "bin_edges", self.bin_edges, "mm", "Bin Edges"
         )
 
+        self._apply_pcm_matrix()
+
     def _read_file(self):
-        df = pd.read_csv(self.filename)
+        df = pd.read_csv(self.filename,
+                         usecols=["Datetime", "V13205", "V13206", "Q13206"],
+                         parse_dates=["Datetime"]
+                         )
+        # df["Q13206"] == 0 reserve QC data
+        df = df[df["Q13206"] == 0]
 
-        # parse datetime
-        df["Datetime"] = pd.to_datetime(df["Datetime"])
-        self.df = df
-
-    def _build_raw_matrices(self):
-        grouped = self.df.groupby("Datetime")
+        grouped = df.groupby("Datetime")
 
         for t, g in grouped:
             raw = np.zeros((32, 32), dtype=int)
