@@ -27,6 +27,7 @@ def read_parsivel_arm_netcdf(filename):
     """
 
     reader = ARM_APU_reader(filename)
+    # return reader
 
     if reader:
         return DropSizeDistribution(reader)
