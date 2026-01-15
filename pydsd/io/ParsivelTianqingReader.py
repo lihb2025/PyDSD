@@ -177,23 +177,20 @@ class ParsivelTianqingReader(object):
         Convert self.time (list of datetime.datetime) to Epoch time
         using package standard.
         """
-        # Unix epoch (UTC)
         epoch = datetime.utcfromtimestamp(0)
 
-        # 将 datetime 列表转换为 epoch seconds
-        time_secs = [
-            (t - epoch).total_seconds()
-            for t in self.time
-        ]
+        time_secs = np.ma.array(
+            [(t - epoch).total_seconds() for t in self.time]
+        )
 
-        eptime = {
+        time_secs.set_fill_value(1e20)
+
+        return {
             "data": time_secs,
             "units": common.EPOCH_UNITS,
-            "title": "Time",
-            "long_name": "time",
+            "standard_name": "Time",
+            "long_name": "Time (UTC)",
         }
-
-        return eptime
 
     diameter = common.var_to_dict(
         "diameter",
