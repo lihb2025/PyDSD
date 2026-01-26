@@ -77,45 +77,48 @@ class ParsivelTianqingReader(object):
         Ts = 60.0  # s
         S = 54.0e-4  # m^2
         pcm = np.reshape(self.pcm_matrix, (32, 32))
+
+        diam = self.diameter["data"]  # (32,)
         vel = self.velocity["data"]  # (32,)
+        dD = self.spread["data"]  # (32,)
 
         grouped = df.groupby("Datetime")
 
         for t, g in grouped:
-            # 每个时次初始化 32 个粒径通道的数浓度
-            nDi = np.zeros(32, dtype=float)
+            # C_ij：时间窗内的原始计数
+            Cij = np.zeros((32, 32), dtype=float)
 
             # 质控阈值
-            min_d, max_d = 0.2, 8.0  # mm
-            min_v, max_v = 0.5, 10.0  # m s^-1
+            min_d, max_d = 0.2, 8.0
+            min_v, max_v = 0.5, 10.0
 
-            # 直径与速度数组
-            diam = self.diameter["data"]  # shape (32,)
-            vel = self.velocity["data"]  # shape (32,)
-
+            # ---------- 1. 统计 C_ij ----------
             for Aij, singlend in g[["V13205", "V13206"]].values:
-                # Aij 为 1-based 编码，需要先还原为 0-based
                 Aij = int(Aij)
+                j = (Aij - 1) // 32
+                i = (Aij - 1) % 32
 
-                j = (Aij - 1) // 32  # 速度通道索引
-                i = (Aij - 1) % 32  # 粒径通道索引
-
-                # # ---------- PCM 质控 ----------
                 if pcm[j, i] != 1:
                     continue
 
-                # ---------- 粒径质控 ----------
-                Di = diam[i]
-                if not (min_d <= Di <= max_d):
-                    continue
+                # Di = diam[i]
+                # if not (min_d <= Di <= max_d):
+                #     continue
+                #
+                # Vj = vel[j]
+                # if not (min_v <= Vj <= max_v):
+                #     continue
 
-                # ---------- 速度质控 ----------
-                Vj = vel[j]
-                if not (min_v <= Vj <= max_v):
-                    continue
+                # 只累加滴数
+                Cij[j, i] += singlend
 
-                # ---------- 数浓度累加 ----------
-                nDi[i] = singlend / (Vj * Ts * S)
+            # ---------- 2. 计算 N(D_i) ----------
+            nDi = np.zeros(32, dtype=float)
+
+            for i in range(32):
+                for j in range(32):
+                    if Cij[j, i] > 0:
+                        nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
 
             self.nd.append(nDi)
 
@@ -234,38 +237,38 @@ class ParsivelTianqingReader(object):
     spread = common.var_to_dict(
         "spread",
         [
-            0.129,
-            0.129,
-            0.129,
-            0.129,
-            0.129,
-            0.129,
-            0.129,
-            0.129,
-            0.129,
-            0.129,
-            0.257,
-            0.257,
-            0.257,
-            0.257,
-            0.257,
-            0.515,
-            0.515,
-            0.515,
-            0.515,
-            0.515,
-            1.030,
-            1.030,
-            1.030,
-            1.030,
-            1.030,
-            2.060,
-            2.060,
-            2.060,
-            2.060,
-            2.060,
-            3.090,
-            3.090,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.125,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.375,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.75,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.5,
+            2.0,
+            2.0,
+            2.0,
+            2.0,
+            2.5,
+            3.0,
         ],
         "mm",
         "Bin size spread of bins",
