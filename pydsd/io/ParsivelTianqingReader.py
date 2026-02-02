@@ -85,6 +85,7 @@ class ParsivelTianqingReader(object):
         grouped = df.groupby("Datetime")
 
         for t, g in grouped:
+            print(t)
             # C_ij：时间窗内的原始计数
             Cij = np.zeros((32, 32), dtype=float)
 
@@ -101,13 +102,13 @@ class ParsivelTianqingReader(object):
                 if pcm[j, i] != 1:
                     continue
 
-                # Di = diam[i]
-                # if not (min_d <= Di <= max_d):
-                #     continue
-                #
-                # Vj = vel[j]
-                # if not (min_v <= Vj <= max_v):
-                #     continue
+                Di = diam[i]
+                if not (min_d <= Di <= max_d):
+                    continue
+
+                Vj = vel[j]
+                if not (min_v <= Vj <= max_v):
+                    continue
 
                 # 只累加滴数
                 Cij[j, i] += singlend
@@ -119,6 +120,7 @@ class ParsivelTianqingReader(object):
                 for j in range(32):
                     if Cij[j, i] > 0:
                         nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
+                        # nDi[i] += Cij[j, i] / (vel[j] * S * Ts)
 
             self.nd.append(nDi)
 
