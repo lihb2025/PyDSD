@@ -83,6 +83,8 @@ class ParsivelTianqingReader(object):
         dD = self.spread["data"]  # (32,)
 
         grouped = df.groupby("Datetime")
+        # df["hour"] = df["Datetime"].dt.floor("H")
+        # grouped = df.groupby("hour")
 
         for t, g in grouped:
             print(t)
@@ -102,13 +104,13 @@ class ParsivelTianqingReader(object):
                 if pcm[j, i] != 1:
                     continue
 
-                Di = diam[i]
-                if not (min_d <= Di <= max_d):
-                    continue
-
-                Vj = vel[j]
-                if not (min_v <= Vj <= max_v):
-                    continue
+                # Di = diam[i]
+                # if not (min_d <= Di <= max_d):
+                #     continue
+                #
+                # Vj = vel[j]
+                # if not (min_v <= Vj <= max_v):
+                #     continue
 
                 # 只累加滴数
                 Cij[j, i] += singlend
@@ -119,8 +121,8 @@ class ParsivelTianqingReader(object):
             for i in range(32):
                 for j in range(32):
                     if Cij[j, i] > 0:
-                        nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
-                        # nDi[i] += Cij[j, i] / (vel[j] * S * Ts)
+                        # nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
+                        nDi[i] += Cij[j, i] / (vel[j] * S * Ts)
 
             self.nd.append(nDi)
 

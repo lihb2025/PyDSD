@@ -31,6 +31,7 @@ def read_gpm_nasa_apu_raw_wallops(filename):
         return None
 
 
+# noinspection PyInterpreter
 class GPMApuWallopsRawReader(object):
 
     """
