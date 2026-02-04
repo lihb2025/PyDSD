@@ -87,48 +87,47 @@ class ParsivelTianqingReader(object):
         # grouped = df.groupby("hour")
 
         for t, g in grouped:
-            print(t)
-            # C_ij：时间窗内的原始计数
-            Cij = np.zeros((32, 32), dtype=float)
-
-            # 质控阈值
-            min_d, max_d = 0.2, 8.0
-            min_v, max_v = 0.5, 10.0
-
-            # ---------- 1. 统计 C_ij ----------
-            for Aij, singlend in g[["V13205", "V13206"]].values:
-                Aij = int(Aij)
-                j = (Aij - 1) // 32
-                i = (Aij - 1) % 32
-
-                if pcm[j, i] != 1:
-                    continue
-
-                # Di = diam[i]
-                # if not (min_d <= Di <= max_d):
-                #     continue
-                #
-                # Vj = vel[j]
-                # if not (min_v <= Vj <= max_v):
-                #     continue
-
-                # 只累加滴数
-                Cij[j, i] += singlend
-
-            # ---------- 2. 计算 N(D_i) ----------
-            nDi = np.zeros(32, dtype=float)
-
-            for i in range(32):
-                for j in range(32):
-                    if Cij[j, i] > 0:
-                        # nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
-                        nDi[i] += Cij[j, i] / (vel[j] * S * Ts)
-
-            self.nd.append(nDi)
-
             g_num = g["V13206"].sum()
-            self.num_particles.append(g_num)
-            self.time.append(t)
+            if g_num > 50:
+                # C_ij：时间窗内的原始计数
+                Cij = np.zeros((32, 32), dtype=float)
+
+                # 质控阈值
+                min_d, max_d = 0.2, 8.0
+                min_v, max_v = 0.5, 10.0
+
+                # ---------- 1. 统计 C_ij ----------
+                for Aij, singlend in g[["V13205", "V13206"]].values:
+                    Aij = int(Aij)
+                    j = (Aij - 1) // 32
+                    i = (Aij - 1) % 32
+
+                    if pcm[j, i] != 1:
+                        continue
+
+                    # Di = diam[i]
+                    # if not (min_d <= Di <= max_d):
+                    #     continue
+                    #
+                    # Vj = vel[j]
+                    # if not (min_v <= Vj <= max_v):
+                    #     continue
+
+                    # 只累加滴数
+                    Cij[j, i] += singlend
+
+                # ---------- 2. 计算 N(D_i) ----------
+                nDi = np.zeros(32, dtype=float)
+
+                for i in range(32):
+                    for j in range(32):
+                        if Cij[j, i] > 0:
+                            # nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
+                            nDi[i] += Cij[j, i] / (vel[j] * S * Ts)
+
+                self.nd.append(nDi)
+                self.num_particles.append(g_num)
+                self.time.append(t)
 
     def _prep_data(self):
         self.fields = {}
