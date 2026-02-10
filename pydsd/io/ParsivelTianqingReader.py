@@ -122,8 +122,8 @@ class ParsivelTianqingReader(object):
                 for i in range(32):
                     for j in range(32):
                         if Cij[j, i] > 0:
-                            # nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
-                            nDi[i] += Cij[j, i] / (vel[j] * S * Ts)
+                            nDi[i] += Cij[j, i] / (vel[j] * S * Ts * dD[i])
+                            # nDi[i] += Cij[j, i] / (vel[j] * S * Ts)
 
                 self.nd.append(nDi)
                 self.num_particles.append(g_num)
